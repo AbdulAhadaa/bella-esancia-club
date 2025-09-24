@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { fetchShopifyProductsDirect } from "@/lib/shopify-direct";
+import { CATEGORIES } from "@/types/shopify";
 
 interface Product {
   id: string;
@@ -37,21 +39,74 @@ const ProductsMenu = ({ category, onAddToCart }: ProductsMenuProps) => {
   const fetchProductsByCategory = async () => {
     try {
       setLoading(true);
+      let allProducts: Product[] = [];
       
-      // Only get products from database inventory
-      const { data: inventoryData, error: inventoryError } = await supabase
-        .from('inventory')
-        .select('*')
-        .eq('category', category);
+      // Get ONLY Shopify products and filter by category
+      try {
+        const shopifyProducts = await fetchShopifyProductsDirect();
+        const convertedShopifyProducts = shopifyProducts
+          .filter((product: any) => {
+            // Check if product matches any subcategory tags for the given category
+            const categoryConfig = CATEGORIES.find(cat => cat.slug === 'skincare'); // Always check skincare for now
+            if (!categoryConfig) return false;
+            
+            const subcategoryConfig = categoryConfig.subcategories.find(sub => sub.name.toLowerCase() === category.toLowerCase());
+            if (!subcategoryConfig) return false;
+            
+            return subcategoryConfig.tags.some(subTag => 
+              product.tags?.some((tag: string) => tag.toLowerCase().includes(subTag.toLowerCase())) ||
+              product.productType.toLowerCase().includes(subTag.toLowerCase())
+            );
+          })
+          .map((product: any) => ({
+            id: product.id,
+            name: product.title,
+            title: product.title,
+            category: mapShopifyCategory(product.productType, product.tags),
+            price: parseFloat(product.variants.edges[0]?.node.price.amount || '0') * 4000,
+            image: product.featuredImage?.url,
+            featuredImage: product.featuredImage,
+            variants: product.variants.edges.map((edge: any) => ({
+              price: {
+                amount: (parseFloat(edge.node.price.amount) * 4000).toString(),
+                currencyCode: 'COP'
+              }
+            })),
+            shopify_variant_id: product.variants.edges[0]?.node.id,
+            shopify_featured_image: product.featuredImage
+          }));
+        
+        allProducts = convertedShopifyProducts;
+      } catch (shopifyError) {
+        console.error('Error loading Shopify products:', shopifyError);
+      }
       
-      if (inventoryError) throw inventoryError;
-      setProducts(inventoryData || []);
+      setProducts(allProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Map Shopify product types and tags to skincare categories
+  const mapShopifyCategory = (productType: string, tags: string[]) => {
+    const tagString = tags.join(' ').toLowerCase();
+    
+    for (const categoryGroup of CATEGORIES) {
+      for (const subcategory of categoryGroup.subcategories) {
+        const matchesTags = subcategory.tags.some(tag => 
+          tagString.includes(tag.toLowerCase()) || 
+          productType.toLowerCase().includes(tag.toLowerCase())
+        );
+        if (matchesTags) {
+          return subcategory.name;
+        }
+      }
+    }
+    
+    return 'skincare';
   };
 
   const formatPrice = (price: number) => {

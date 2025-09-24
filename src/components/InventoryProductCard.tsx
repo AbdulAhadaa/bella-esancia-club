@@ -18,6 +18,11 @@ interface InventoryProduct {
   stock: number;
   shopify_variant_id?: string;
   shopify_product_id?: string;
+  shopify_featured_image?: {
+    url: string;
+    altText: string;
+  };
+  isShopify?: boolean;
 }
 
 interface InventoryProductCardProps {
@@ -44,7 +49,8 @@ export const InventoryProductCard = ({ product }: InventoryProductCardProps) => 
       price: product.price,
       image: product.image,
       quantity: 1,
-      shopify_variant_id: product.shopify_variant_id
+      shopify_variant_id: product.shopify_variant_id,
+      shopify_featured_image: product.shopify_featured_image
     });
     
     toast({
@@ -96,11 +102,18 @@ export const InventoryProductCard = ({ product }: InventoryProductCardProps) => 
 
       <CardContent className="p-4">
         <div className="space-y-2">
-          {product.brand && (
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-              {product.brand}
-            </p>
-          )}
+          <div className="flex items-center justify-between">
+            {product.brand && (
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                {product.brand}
+              </p>
+            )}
+            {product.isShopify && (
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                Shopify
+              </span>
+            )}
+          </div>
           
           <h3 className="font-semibold line-clamp-2 text-sm leading-tight">
             {product.name}

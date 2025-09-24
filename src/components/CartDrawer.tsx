@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useCart } from "@/hooks/useCart";
-import { supabase } from "@/integrations/supabase/client";
+import { createShopifyCheckoutDirect } from "@/lib/shopify-direct";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -53,23 +53,15 @@ const CartDrawer = () => {
         quantity: item.quantity
       }));
 
-      const { data, error } = await supabase.functions.invoke('shopify-checkout', {
-        body: {
-          lineItems
-        }
-      });
+      const checkoutUrl = await createShopifyCheckoutDirect(lineItems);
 
-      if (error) throw error;
-
-      if (data?.checkoutUrl) {
-        window.open(data.checkoutUrl, '_blank');
+      if (checkoutUrl) {
+        window.open(checkoutUrl, '_blank');
         clearCart();
         toast({
           title: "¡Éxito!",
           description: "Redirigiendo al checkout de Shopify...",
         });
-      } else if (data?.error) {
-        throw new Error(data.error);
       } else {
         throw new Error('No se recibió URL de checkout');
       }

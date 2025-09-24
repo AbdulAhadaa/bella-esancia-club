@@ -24,6 +24,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { fetchShopifyProductsDirect } from "@/lib/shopify-direct";
+import { CATEGORIES } from "@/types/shopify";
 
 interface InventoryProduct {
   id: string;
@@ -35,6 +37,9 @@ interface InventoryProduct {
   description?: string;
   tags?: string[];
   stock: number;
+  isShopify?: boolean;
+  shopify_variant_id?: string;
+  productType?: string;
 }
 
 export default function StorefrontCatalog() {
@@ -75,18 +80,63 @@ export default function StorefrontCatalog() {
   const loadProducts = async () => {
     try {
       setIsLoading(true);
+      let allProducts: InventoryProduct[] = [];
 
-      let query = supabase.from('inventory').select('*');
-      
-      if (category) {
-        query = query.eq('category', category);
+      // Load ONLY Shopify products and convert to inventory format
+      try {
+        const shopifyProducts = await fetchShopifyProductsDirect();
+        console.log('Raw Shopify products:', shopifyProducts.length);
+        
+        const convertedShopifyProducts = shopifyProducts.map((product: any) => ({
+          id: product.id,
+          name: product.title,
+          brand: product.vendor,
+          category: mapShopifyCategory(product.productType, product.tags),
+          price: parseFloat(product.variants.edges[0]?.node.price.amount || '0') * 4000,
+          image: product.featuredImage?.url,
+          description: product.description,
+          tags: product.tags,
+          productType: product.productType,
+          stock: 999,
+          isShopify: true,
+          shopify_variant_id: product.variants.edges[0]?.node.id,
+          shopify_featured_image: product.featuredImage
+        }));
+        
+        console.log('Converted products:', convertedShopifyProducts.length);
+        console.log('Category:', category, 'Subcategory:', subcategory);
+        
+        // Filter Shopify products by category and subcategory if specified
+        let filteredShopifyProducts = convertedShopifyProducts;
+        
+        if (category && !subcategory) {
+          // Show all products for main category
+          filteredShopifyProducts = convertedShopifyProducts;
+        } else if (subcategory) {
+          // Use actual Shopify tags for filtering
+          filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
+            const hasMatchingTag = p.tags?.some(tag => {
+              const tagLower = tag.toLowerCase();
+              // Check for common tag patterns
+              if (subcategory.includes('serum') && (tagLower.includes('serum') || tagLower.includes('essence'))) return true;
+              if (subcategory.includes('limpiador') && (tagLower.includes('cleanser') || tagLower.includes('cleansing'))) return true;
+              if (subcategory.includes('crema') && (tagLower.includes('moisturizer') || tagLower.includes('cream'))) return true;
+              if (subcategory.includes('mascarilla') && tagLower.includes('mask')) return true;
+              if (subcategory.includes('protector') && (tagLower.includes('sunscreen') || tagLower.includes('spf'))) return true;
+              return tagLower.includes(subcategory.toLowerCase().replace('-', ' '));
+            });
+            return hasMatchingTag;
+          });
+          console.log(`Filtering by subcategory "${subcategory}" found ${filteredShopifyProducts.length} products`);
+        }
+        
+        allProducts = filteredShopifyProducts;
+        console.log('Final filtered products:', allProducts.length);
+      } catch (shopifyError) {
+        console.error('Error loading Shopify products:', shopifyError);
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
       
-      setProducts(data || []);
+      setProducts(allProducts);
       setHasNextPage(false);
       setCursor(null);
 
@@ -101,6 +151,26 @@ export default function StorefrontCatalog() {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
+  };
+
+  // Map Shopify product types and tags to skincare categories using predefined structure
+  const mapShopifyCategory = (productType: string, tags: string[]) => {
+    const tagString = tags.join(' ').toLowerCase();
+    
+    // Check against predefined category tags from CATEGORIES
+    for (const category of CATEGORIES) {
+      for (const subcategory of category.subcategories) {
+        const matchesTags = subcategory.tags.some(tag => 
+          tagString.includes(tag.toLowerCase()) || 
+          productType.toLowerCase().includes(tag.toLowerCase())
+        );
+        if (matchesTags) {
+          return subcategory.name;
+        }
+      }
+    }
+    
+    return 'skincare'; // Default to main skincare category
   };
 
   const loadMore = () => {

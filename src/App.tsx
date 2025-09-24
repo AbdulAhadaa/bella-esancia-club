@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/hooks/useCart";
 import { ShopifyCartProvider } from "@/hooks/useShopifyCart";
 import { StorefrontCartProvider } from "@/hooks/useStorefrontCart";
+import { startAutoSync } from "@/lib/shopify-sync";
 import Index from "./pages/Index";
 import Tiendas from "./pages/Tiendas";
 import Terminos from "./pages/Terminos";
@@ -24,6 +25,9 @@ import StorefrontProduct from "./pages/StorefrontProduct";
 
 const queryClient = new QueryClient();
 
+// Start auto-sync when app loads
+startAutoSync();
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -37,9 +41,9 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/tiendas" element={<Tiendas />} />
             <Route path="/productos" element={<Products />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/shop/:category" element={<Shop />} />
-            <Route path="/shop/:category/:subcategory" element={<Shop />} />
+            <Route path="/shop" element={<StorefrontCatalog />} />
+            <Route path="/shop/:category" element={<StorefrontCatalog />} />
+            <Route path="/shop/:category/:subcategory" element={<StorefrontCatalog />} />
             <Route path="/brands" element={<Brands />} />
             <Route path="/terminos" element={<Terminos />} />
             <Route path="/auth" element={<Auth />} />

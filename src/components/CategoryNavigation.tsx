@@ -57,13 +57,6 @@ const CategoryNavigation = ({ onCategorySelect, onBrandSelect }: CategoryNavigat
               Marcas
             </button>
             
-            <button
-              onClick={() => navigate('/shopify-shop')}
-              className="text-sm font-medium hover:text-primary transition-colors"
-            >
-              Tienda Shopify
-            </button>
-            
             {CATEGORIES.map((category) => (
               <div
                 key={category.slug}
@@ -99,9 +92,6 @@ const CategoryNavigation = ({ onCategorySelect, onBrandSelect }: CategoryNavigat
           </div>
           
           <div className="flex items-center space-x-4">
-            <a href="/tiendas" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-              Tiendas
-            </a>
             <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               Contáctanos
             </a>
