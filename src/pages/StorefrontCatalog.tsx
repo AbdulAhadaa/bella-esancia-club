@@ -110,8 +110,20 @@ export default function StorefrontCatalog() {
         let filteredShopifyProducts = convertedShopifyProducts;
         
         if (category && !subcategory) {
-          // Show all products for main category
-          filteredShopifyProducts = convertedShopifyProducts;
+          // Filter by main category using Shopify tags
+          filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
+            const categoryTags = {
+              'skincare': ['skincare', 'skin', 'face', 'cleanser', 'serum', 'moisturizer', 'cream', 'mask', 'sunscreen'],
+              'makeup': ['makeup', 'cosmetics', 'foundation', 'lipstick', 'eyeshadow', 'mascara', 'concealer'],
+              'hair': ['hair', 'shampoo', 'conditioner', 'styling', 'treatment'],
+              'body': ['body', 'lotion', 'soap', 'scrub', 'oil']
+            };
+            
+            const tags = categoryTags[category as keyof typeof categoryTags] || [];
+            return p.tags?.some(tag => 
+              tags.some(catTag => tag.toLowerCase().includes(catTag.toLowerCase()))
+            ) || p.productType?.toLowerCase().includes(category.toLowerCase());
+          });
         } else if (subcategory) {
           // Use actual Shopify tags for filtering
           filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
