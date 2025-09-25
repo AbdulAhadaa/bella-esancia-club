@@ -87,21 +87,24 @@ export default function StorefrontCatalog() {
         const shopifyProducts = await fetchShopifyProductsDirect();
         console.log('Raw Shopify products:', shopifyProducts.length);
         
-        const convertedShopifyProducts = shopifyProducts.map((product: any) => ({
-          id: product.id,
-          name: product.title,
-          brand: product.vendor,
-          category: mapShopifyCategory(product.productType, product.tags),
-          price: parseFloat(product.variants.edges[0]?.node.price.amount || '0') * 4000,
-          image: product.featuredImage?.url,
-          description: product.description,
-          tags: product.tags,
-          productType: product.productType,
-          stock: 999,
-          isShopify: true,
-          shopify_variant_id: product.variants.edges[0]?.node.id,
-          shopify_featured_image: product.featuredImage
-        }));
+        const convertedShopifyProducts = shopifyProducts.map((product: any) => {
+          console.log('Product:', product.title, 'ProductType:', product.productType);
+          return {
+            id: product.id,
+            name: product.title,
+            brand: product.vendor,
+            category: mapShopifyCategory(product.productType, product.tags),
+            price: parseFloat(product.variants.edges[0]?.node.price.amount || '0'),
+            image: product.featuredImage?.url,
+            description: product.description,
+            tags: product.tags,
+            productType: product.productType,
+            stock: 999,
+            isShopify: true,
+            shopify_variant_id: product.variants.edges[0]?.node.id,
+            shopify_featured_image: product.featuredImage
+          };
+        });
         
         console.log('Converted products:', convertedShopifyProducts.length);
         console.log('Category:', category, 'Subcategory:', subcategory);
@@ -110,34 +113,30 @@ export default function StorefrontCatalog() {
         let filteredShopifyProducts = convertedShopifyProducts;
         
         if (category && !subcategory) {
-          // Filter by main category using Shopify tags
-          filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
-            const categoryTags = {
-              'skincare': ['skincare', 'skin', 'face', 'cleanser', 'serum', 'moisturizer', 'cream', 'mask', 'sunscreen'],
-              'makeup': ['makeup', 'cosmetics', 'foundation', 'lipstick', 'eyeshadow', 'mascara', 'concealer'],
-              'hair': ['hair', 'shampoo', 'conditioner', 'styling', 'treatment'],
-              'body': ['body', 'lotion', 'soap', 'scrub', 'oil']
-            };
-            
-            const tags = categoryTags[category as keyof typeof categoryTags] || [];
-            return p.tags?.some(tag => 
-              tags.some(catTag => tag.toLowerCase().includes(catTag.toLowerCase()))
-            ) || p.productType?.toLowerCase().includes(category.toLowerCase());
-          });
-        } else if (subcategory) {
-          // Use actual Shopify tags for filtering
-          filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
-            const hasMatchingTag = p.tags?.some(tag => {
-              const tagLower = tag.toLowerCase();
-              // Check for common tag patterns
-              if (subcategory.includes('serum') && (tagLower.includes('serum') || tagLower.includes('essence'))) return true;
-              if (subcategory.includes('limpiador') && (tagLower.includes('cleanser') || tagLower.includes('cleansing'))) return true;
-              if (subcategory.includes('crema') && (tagLower.includes('moisturizer') || tagLower.includes('cream'))) return true;
-              if (subcategory.includes('mascarilla') && tagLower.includes('mask')) return true;
-              if (subcategory.includes('protector') && (tagLower.includes('sunscreen') || tagLower.includes('spf'))) return true;
-              return tagLower.includes(subcategory.toLowerCase().replace('-', ' '));
+          // Filter by main category
+          const categoryConfig = CATEGORIES.find(cat => cat.slug === category);
+          if (categoryConfig) {
+            const allCategoryTags = categoryConfig.subcategories.flatMap(sub => sub.tags);
+            filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
+              return p.tags?.some(tag => 
+                allCategoryTags.some(catTag => tag.toLowerCase().includes(catTag.toLowerCase()))
+              ) || p.productType?.toLowerCase().includes(category.toLowerCase());
             });
-            return hasMatchingTag;
+          }
+        } else if (subcategory) {
+          // Match by product title/name since productType is generic "Skincare"
+          filteredShopifyProducts = convertedShopifyProducts.filter((p: InventoryProduct) => {
+            const title = p.name.toLowerCase();
+            
+            if (subcategory === 'sunscreen') {
+              return title.includes('sun') || title.includes('spf');
+            } else if (subcategory === 'eye-creams') {
+              return title.includes('eye');
+            } else if (subcategory === 'facial-cleansers') {
+              return title.includes('cleanser') || title.includes('cleansing');
+            }
+            
+            return false;
           });
           console.log(`Filtering by subcategory "${subcategory}" found ${filteredShopifyProducts.length} products`);
         }
@@ -165,7 +164,7 @@ export default function StorefrontCatalog() {
     }
   };
 
-  // Map Shopify product types and tags to skincare categories using predefined structure
+  // Map Shopify product types and tags to categories using predefined structure
   const mapShopifyCategory = (productType: string, tags: string[]) => {
     const tagString = tags.join(' ').toLowerCase();
     
@@ -177,12 +176,12 @@ export default function StorefrontCatalog() {
           productType.toLowerCase().includes(tag.toLowerCase())
         );
         if (matchesTags) {
-          return subcategory.name;
+          return category.slug; // Return main category slug
         }
       }
     }
     
-    return 'skincare'; // Default to main skincare category
+    return 'skincare'; // Default to skincare category
   };
 
   const loadMore = () => {
@@ -210,10 +209,10 @@ export default function StorefrontCatalog() {
       );
     }
 
-    // Type filter (using category)
+    // Type filter (using productType)
     if (selectedTypes.length > 0) {
       filtered = filtered.filter(product =>
-        selectedTypes.includes(product.category)
+        product.productType && selectedTypes.includes(product.productType)
       );
     }
 
@@ -243,7 +242,7 @@ export default function StorefrontCatalog() {
 
   // Get unique values for filters
   const uniqueBrands = [...new Set(products.map(p => p.brand))].filter(Boolean).sort();
-  const uniqueTypes = [...new Set(products.map(p => p.category))].filter(Boolean).sort();
+  const uniqueTypes = [...new Set(products.map(p => p.productType))].filter(Boolean).sort();
   const uniqueTags = [...new Set(products.flatMap(p => p.tags || []))].filter(Boolean).sort().slice(0, 20); // Limit tags
 
   const handleBrandChange = (brand: string, checked: boolean) => {
@@ -275,8 +274,13 @@ export default function StorefrontCatalog() {
   const hasActiveFilters = searchTerm || selectedBrands.length > 0 || selectedTypes.length > 0 || selectedTags.length > 0;
 
   const getPageTitle = () => {
-    if (category) {
-      return `Colección ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+    if (category && subcategory) {
+      const categoryConfig = CATEGORIES.find(cat => cat.slug === category);
+      const subcategoryConfig = categoryConfig?.subcategories.find(sub => sub.slug === subcategory);
+      return subcategoryConfig ? subcategoryConfig.name : `${category} - ${subcategory}`;
+    } else if (category) {
+      const categoryConfig = CATEGORIES.find(cat => cat.slug === category);
+      return categoryConfig ? categoryConfig.name : category.charAt(0).toUpperCase() + category.slice(1);
     }
     return "Catálogo de Productos";
   };

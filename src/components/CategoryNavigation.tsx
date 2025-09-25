@@ -1,7 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "lucide-react";
 import { CATEGORIES } from "@/types/shopify";
 import { useNavigate } from "react-router-dom";
+import { getDynamicCategories, DynamicCategory } from "@/lib/dynamic-categories";
 
 interface CategoryNavigationProps {
   onCategorySelect?: (category: string, subcategory?: string) => void;
@@ -10,8 +11,13 @@ interface CategoryNavigationProps {
 
 const CategoryNavigation = ({ onCategorySelect, onBrandSelect }: CategoryNavigationProps) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [dynamicCategories, setDynamicCategories] = useState<DynamicCategory[]>([]);
   const navigate = useNavigate();
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    getDynamicCategories().then(setDynamicCategories);
+  }, []);
 
   const handleMouseEnter = (categorySlug: string) => {
     if (hoverTimeoutRef.current) {
@@ -72,19 +78,29 @@ const CategoryNavigation = ({ onCategorySelect, onBrandSelect }: CategoryNavigat
                   <ChevronDown className="ml-1 h-3 w-3" />
                 </button>
                 
-                {activeCategory === category.slug && category.subcategories.length > 0 && (
-                  <div className="absolute top-full left-0 bg-background border border-border shadow-xl rounded-lg z-50 min-w-[400px] max-w-2xl p-6 mt-2">
-                    <div className="flex flex-col gap-2">
-                      {category.subcategories.map((subcategory) => (
+                {activeCategory === category.slug && (
+                  <div className="absolute top-full left-0 bg-background border border-border shadow-lg rounded-md z-50 min-w-[200px] py-2 mt-1">
+                    {category.slug === 'skincare' && dynamicCategories.length > 0 ? (
+                      dynamicCategories.map((dynCategory) => (
+                        <button
+                          key={dynCategory.slug}
+                          onClick={() => handleCategoryClick(category.slug, dynCategory.slug)}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          {dynCategory.name}
+                        </button>
+                      ))
+                    ) : (
+                      category.subcategories.map((subcategory) => (
                         <button
                           key={subcategory.slug}
                           onClick={() => handleCategoryClick(category.slug, subcategory.slug)}
-                          className="text-left text-sm hover:text-primary hover:bg-muted px-4 py-3 rounded-lg transition-all duration-200 w-full flex items-center justify-start font-medium border border-transparent hover:border-primary/20 hover:shadow-md"
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors"
                         >
                           {subcategory.name}
                         </button>
-                      ))}
-                    </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>

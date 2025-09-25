@@ -21,11 +21,10 @@ const ProductCard = ({ product, onBuyNow, isCheckoutLoading }: ProductCardProps)
   const variant = product.variants.edges[0]?.node;
 
   const formatPrice = (amount: string, currency: string) => {
-    return new Intl.NumberFormat('es-CO', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency === 'USD' ? 'COP' : currency,
-      minimumFractionDigits: 0,
-    }).format(parseFloat(amount) * (currency === 'USD' ? 4000 : 1));
+      currency: 'USD',
+    }).format(parseFloat(amount));
   };
 
   const handleAddToCart = () => {

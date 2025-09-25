@@ -249,18 +249,8 @@ export async function getRecommendedProducts(productId: string, intent: 'RELATED
 export function formatPrice(amount: string, currencyCode: string = 'USD'): string {
   const price = parseFloat(amount);
   
-  if (currencyCode === 'USD') {
-    // Convert USD to COP (approximate rate)
-    const copAmount = price * 4000;
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(copAmount);
-  }
-  
-  return new Intl.NumberFormat('es-CO', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currencyCode,
+    currency: 'USD',
   }).format(price);
 }
